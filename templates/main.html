@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Trademark Search</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        form {
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        input, select, button {
+            padding: 8px;
+            margin: 5px;
+            font-size: 14px;
+        }
+
+        #suggestions {
+            border: 1px solid #ccc;
+            max-height: 150px;
+            overflow-y: auto;
+            position: absolute;
+            background: white;
+            z-index: 10;
+            width: 300px;
+        }
+
+        #suggestions div {
+            padding: 5px;
+            cursor: pointer;
+        }
+
+        #suggestions div:hover {
+            background-color: #eee;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 30px;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px 12px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f4f4f4;
+        }
+
+        tr:nth-child(even) {
+            background-color: #fafafa;
+        }
+    </style>
+</head>
+    <h1>Trademark Search</h1>
+
+    <form action="/search" method="post">
+        <input type="text" id="productName" name="productName" placeholder="Search product name" autocomplete="off" required>
+        <div id="suggestions"></div>
+
+        <select name="registerStatus" id="registerStatus" required>
+            <option value="">Select register status</option>
+            {% for status in status_options %}
+                <option value="{{ status }}">{{ status }}</option>
+            {% endfor %}
+        </select>
+
+        <button type="submit">Search</button>
+    </form>
+
+    {% if item is not none %}
+    <table>
+        <thead>
+            <tr>
+                {% for col in item.columns %}
+                    <th>{{ col }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in item.itertuples(index=False) %}
+                <tr>
+                    {% for value in row %}
+                        <td>{{ value }}</td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+    <div style="margin-top: 20px;">
+        {% if has_prev %}
+            <a href="/?page={{ current_page - 1 }}">&lt;</a>
+        {% endif %}
+    
+        <span style="margin: 0 10px;">페이지 {{ current_page }}</span>
+    
+        {% if has_next %}
+            <a href="/?page={{ current_page + 1 }}">&gt;</a>
+        {% endif %}
+    </div>
+    
+    <script>
+        const input = document.getElementById('productName');
+        const suggestions = document.getElementById('suggestions');
+        const statusSelect = document.getElementById('registerStatus');
+    
+        input.addEventListener('input', async () => {
+            const query = input.value;
+    
+            // 자동완성 처리
+            if (query.length < 1) {
+                suggestions.innerHTML = "";
+                statusSelect.innerHTML = '<option value="">Select register status</option>';
+                return;
+            }
+    
+            try {
+                // 1. 자동완성
+                const response = await fetch(`/autocomplete?query=${encodeURIComponent(query)}`);
+                const items = await response.json();
+    
+                suggestions.innerHTML = "";
+                items.forEach(item => {
+                    const div = document.createElement('div');
+                    div.textContent = item;
+                    div.addEventListener('click', () => {
+                        input.value = item;
+                        suggestions.innerHTML = "";
+    
+                        // 상태옵션도 해당 이름으로 다시 갱신
+                        updateStatusOptions(item);
+                    });
+                    suggestions.appendChild(div);
+                });
+    
+                // 2. 상태 옵션 갱신
+                updateStatusOptions(query);
+            } catch (err) {
+                console.error("Autocomplete or status update failed", err);
+            }
+        });
+    
+        async function updateStatusOptions(productName) {
+            try {
+                const res = await fetch(`/status_options?productName=${encodeURIComponent(productName)}`);
+                const options = await res.json();
+    
+                statusSelect.innerHTML = '<option value="">Select register status</option>';
+                options.forEach(status => {
+                    const opt = document.createElement('option');
+                    opt.value = status;
+                    opt.textContent = status;
+                    statusSelect.appendChild(opt);
+                });
+            } catch (error) {
+                console.error('Failed to load status options:', error);
+            }
+        }
+    </script>
+</body>
+</html>
